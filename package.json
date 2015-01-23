@@ -1,0 +1,21 @@
+{
+  "name": "pinger",
+  "version": "0.1.0",
+  "description": "pings a url and graphs the result",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ping",
+    "graph"
+  ],
+  "author": "vivaldi-va",
+  "license": "ISC",
+  "dependencies": {
+    "blessed": "0.0.38",
+    "commander": "^2.6.0",
+    "drawille": "^1.0.0",
+    "net-ping": "^1.1.11"
+  }
+}
