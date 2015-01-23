@@ -5,7 +5,7 @@
   "main": "index.js",
   "preferGlobal": true,
   "bin": {
-    "pinger": "./bin/pinger.js"
+    "pingtop": "./"
   },
   "keywords": [
     "ping",
