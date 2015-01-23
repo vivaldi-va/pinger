@@ -140,7 +140,7 @@ var drawChart = function(cb) {
 	var height = (graph.height - 2) * 4;
 	var chart = new Canvas(width, height);
 
-	var computeY = function(input) {
+	var computeY = function(input, ceil) {
 		return height - Math.floor(((height + 1) / 100) * ((input / highVal)*100)) + 1;
 		//return height - Math.floor(((height + 1)/100)*input);
 	};
@@ -151,14 +151,24 @@ var drawChart = function(cb) {
 		if(err) {
 			console.error(err);
 		}
+
+		if(values.length >= width) {
+			values.shift();
+		}
+
 		values.push(ms);
 
-		if(ms > highVal) {
-			highVal = ms;
+		highVal = 0;
+		for(var pos in values) {
+			if(values[pos] > highVal) {
+				highVal = values[pos];
+			}
 		}
 
 
 		for(var pos in values) {
+
+
 			var x = parseInt(pos) + (width-values.length);
 
 			var y = computeY(values[pos]);
