@@ -178,35 +178,37 @@ var drawChart = function(cb) {
 
 };
 
+module.exports = function() {
+	dns.resolve4(host, function(err, addresses) {
+		if(err) {
+			console.log(err);
+		}
 
-dns.resolve4(host, function(err, addresses) {
-	if(err) {
-		console.log(err);
-	}
+		ip = addresses[0];
 
-	ip = addresses[0];
+		updateTime();
 
-	 updateTime();
+		screen.append(graph);
+		screen.append(header);
+		screen.append(date);
+		screen.append(lastTrace);
 
-	 screen.append(graph);
-	 screen.append(header);
-	 screen.append(date);
-	 screen.append(lastTrace);
+		screen.render();
 
-	 screen.render();
+		setInterval(updateTime, 1000);
+		setInterval(function() {
+			//graph.setContent(drawChart());
+			drawChart(function(err, frame) {
+				//console.log(frame);
+				graph.setContent(frame);
+				screen.render();
+			});
+			//screen.render();
+		}, 1000);
+		setInterval(updateLastTrace, 1000);
+	});
+};
 
-	 setInterval(updateTime, 1000);
-	 setInterval(function() {
-		 //graph.setContent(drawChart());
-		 drawChart(function(err, frame) {
-			 //console.log(frame);
-			 graph.setContent(frame);
-			 screen.render();
-		 });
-		 //screen.render();
-	 }, 1000);
-	setInterval(updateLastTrace, 1000);
-});
 
 
 
