@@ -4,6 +4,9 @@
   "description": "pings a url and graphs the result",
   "main": "index.js",
   "preferGlobal": true,
+  "directories": {
+    "bin": "./bin"
+  },
   "bin": {
     "pingtop": "./bin/pinger.js"
   },
