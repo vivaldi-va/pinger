@@ -63,6 +63,16 @@ var lastTrace = blessed.text({
 	content: ''
 });
 
+var packetLoss = function() {
+	var loss = 0;
+
+	if(lostPackets > 0 && values.length > 0) {
+		loss = lostPackets/values.length;
+	}
+
+	return loss;
+}
+
 var averagePing = function() {
 	var sum = 0;
 	var count = 0;
@@ -97,7 +107,7 @@ var updateTime = function() {
 
 
 var updateLastTrace = function() {
-	var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms";
+	var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
 	lastTrace.setContent(lastTraceString);
 	lastTrace.width = lastTraceString.length;
 	screen.render();
@@ -111,7 +121,7 @@ var getPing = function(cb) {
 
 		if(err) {
 
-			if(err instanceof ping.RequestTimedOutError) {
+			if(err instanceof ping.RequestTimedOutError || err instanceof ping.DestinationUnreachableError) {
 				ms = 0;
 				lostPackets++;
 			} else {
@@ -131,7 +141,8 @@ var drawChart = function(cb) {
 	var chart = new Canvas(width, height);
 
 	var computeY = function(input) {
-		return height - Math.floor(((height + 1)/100)*input);
+		return height - Math.floor(((height + 1) / 100) * ((input / highVal)*100)) + 1;
+		//return height - Math.floor(((height + 1)/100)*input);
 	};
 
 	//console.log("Chart dimensions", chart);
@@ -165,7 +176,7 @@ var drawChart = function(cb) {
 	});
 
 
-}
+};
 
 
 dns.resolve4(host, function(err, addresses) {
