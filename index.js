@@ -204,18 +204,17 @@ module.exports = function() {
 		screen.append(lastTrace);
 
 		screen.render();
-
-		setInterval(updateTime, 1000);
 		setInterval(function() {
 			//graph.setContent(drawChart());
+			updateTime();
 			drawChart(function(err, frame) {
 				//console.log(frame);
 				graph.setContent(frame);
 				screen.render();
 			});
 			//screen.render();
+			updateLastTrace();
 		}, 1000);
-		setInterval(updateLastTrace, 1000);
 	});
 };
 
