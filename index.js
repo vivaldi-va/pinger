@@ -5,7 +5,7 @@ var blessed = require('blessed');
 var Canvas = require('drawille');
 var os = require('os');
 var ping = require('net-ping');
-var session = ping.createSession();
+var session = ping.createSession({timeout: 1000});
 var program = blessed.program();
 var dns = require('dns');
 
@@ -82,7 +82,7 @@ var averagePing = function() {
 	}
 
 	return average;
-}
+};
 
 
 var zeroPad = function(input) {
@@ -101,16 +101,26 @@ var updateLastTrace = function() {
 	lastTrace.setContent(lastTraceString);
 	lastTrace.width = lastTraceString.length;
 	screen.render();
-}
+};
 
 
 var getPing = function(cb) {
 	session.pingHost(ip, function(err, target, sent, rcvd) {
+
+		var ms;
+
 		if(err) {
-			return cb(err);
+
+			if(err instanceof ping.RequestTimedOutError) {
+				ms = 0;
+				lostPackets++;
+			} else {
+				return cb(err);
+			}
+
 		}
 
-		var ms = rcvd - sent;
+		ms = rcvd - sent;
 		cb(null, ms);
 	});
 };
@@ -140,11 +150,7 @@ var drawChart = function(cb) {
 		for(var pos in values) {
 			var x = parseInt(pos) + (width-values.length);
 
-
-
 			var y = computeY(values[pos]);
-
-
 
 			for(y; y<height;y++) {
 				chart.set(x, y);
