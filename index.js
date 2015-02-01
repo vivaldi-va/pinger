@@ -70,7 +70,7 @@ var packetLoss = function() {
 		loss = lostPackets/values.length;
 	}
 
-	return loss;
+	return Math.floor(loss * 100);
 }
 
 var averagePing = function() {
@@ -124,6 +124,7 @@ var getPing = function(cb) {
 			if(err instanceof ping.RequestTimedOutError || err instanceof ping.DestinationUnreachableError) {
 				ms = 0;
 				lostPackets++;
+				return cb(null, ms);
 			} else {
 				return cb(err);
 			}
@@ -152,6 +153,8 @@ var drawChart = function(cb) {
 			console.error(err);
 		}
 
+		// shift values out of the array once they are out of the
+		// scope of the graph to ensure performance
 		if(values.length >= width) {
 			values.shift();
 		}
