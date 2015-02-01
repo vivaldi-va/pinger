@@ -141,7 +141,8 @@ var drawChart = function(cb) {
 	var height = (graph.height - 2) * 4;
 	var chart = new Canvas(width, height);
 
-	var computeY = function(input, ceil) {
+	var computeY = function(input) {
+		//var ceil =
 		return height - Math.floor(((height + 1) / 100) * ((input / highVal)*100)) + 1;
 		//return height - Math.floor(((height + 1)/100)*input);
 	};
@@ -212,8 +213,10 @@ module.exports = function() {
 			updateTime();
 			drawChart(function(err, frame) {
 				//console.log(frame);
-				graph.setContent(frame);
-				screen.render();
+				process.nextTick(function() {
+					graph.setContent(frame);
+					screen.render();
+				})
 			});
 			//screen.render();
 			updateLastTrace();
