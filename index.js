@@ -11,10 +11,11 @@ var dns = require('dns');
 
 var host = process.argv[2];
 var ip;
-var values = [];
+var values = exports.values = [];
 var highVal = 0;
 var traces = 0;
-var lostPackets = 0;
+var cachedAverage = 0;
+var height;
 
 
 console.log("host: %s", host);
@@ -63,8 +64,15 @@ var lastTrace = blessed.text({
 	content: ''
 });
 
+
 var packetLoss = function() {
 	var loss = 0;
+	var lostPackets = 0;
+	values.forEach(function(value) {
+		if(value === 0) {
+			lostPackets++;
+		}
+	});
 
 	if(lostPackets > 0 && values.length > 0) {
 		loss = lostPackets/values.length;
@@ -91,6 +99,8 @@ var averagePing = function() {
 		average = Math.floor(sum/count);
 	}
 
+	cachedAverage = average;
+
 	return average;
 };
 
@@ -107,7 +117,7 @@ var updateTime = function() {
 
 
 var updateLastTrace = function() {
-	var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
+	var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Values: " + values.length + " | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
 	lastTrace.setContent(lastTraceString);
 	lastTrace.width = lastTraceString.length;
 	screen.render();
@@ -123,7 +133,6 @@ var getPing = function(cb) {
 
 			if(err instanceof ping.RequestTimedOutError || err instanceof ping.DestinationUnreachableError) {
 				ms = 0;
-				lostPackets++;
 				return cb(null, ms);
 			} else {
 				return cb(err);
@@ -136,16 +145,26 @@ var getPing = function(cb) {
 	});
 };
 
+var computeY = function(input) {
+	//var ceil =
+
+	var processedHighVal = highVal || 0;
+	if(input > (cachedAverage * 10) && cachedAverage > 0) {
+		processedHighVal = cachedAverage * 10;
+	}
+	var y  = height - Math.floor(((height + 1) / 100) * ((input / processedHighVal)*100)) + 1;
+	return y;
+	//return height - Math.floor(((height + 1)/100)*input);
+};
+
+exports.computeY = computeY;
+
 var drawChart = function(cb) {
 	var width = (graph.width - 2) * 2;
-	var height = (graph.height - 2) * 4;
+	height = (graph.height - 2) * 4;
 	var chart = new Canvas(width, height);
 
-	var computeY = function(input) {
-		//var ceil =
-		return height - Math.floor(((height + 1) / 100) * ((input / highVal)*100)) + 1;
-		//return height - Math.floor(((height + 1)/100)*input);
-	};
+
 
 	//console.log("Chart dimensions", chart);
 	getPing(function(err, ms) {

@@ -26,5 +26,9 @@
     "commander": "^2.6.0",
     "drawille": "^1.0.0",
     "net-ping": "^1.1.11"
+  },
+  "devDependencies": {
+    "chai": "^1.10.0",
+    "mocha": "^2.1.0"
   }
 }
