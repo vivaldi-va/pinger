@@ -1,6 +1,6 @@
 {
   "name": "pingtop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "pings a url and graphs the result",
   "main": "index.js",
   "preferGlobal": true,
@@ -8,7 +8,7 @@
     "bin": "./bin"
   },
   "bin": {
-    "pingtop": "./bin/pinger.js"
+    "pingtop": "./bin/pingtop.js"
   },
   "keywords": [
     "ping",
