@@ -1,130 +1,81 @@
-'use strict';
+/**
+ * Created by vivaldi on 12/05/2015.
+ */
 
-var cli = require('commander');
 var blessed = require('blessed');
 var Canvas = require('drawille');
-var os = require('os');
+var program = require('commander');
 var ping = require('net-ping');
-var session = ping.createSession({timeout: 1000});
-var program = blessed.program();
 var dns = require('dns');
 
-var host = process.argv[2];
+var session = ping.createSession({timeout: 1000});
+
+var host;
 var ip;
 var values = exports.values = [];
 var highVal = 0;
-var traces = 0;
 var cachedAverage = 0;
-var height;
+
+var screen;
+var graph;
+var headerText;
+var header;
+var lastTrace;
+var date;
+var packetLoss;
+var averagePing;
+var updateLastTrace;
+var zeroPad;
+var updateTime;
+
+var maxYValue = 500;
+
+var graphDimensions = {
+	width: 0,
+	height: 0
+};
 
 
-console.log("host: %s", host);
-
-var screen = blessed.screen();
-
-var graph = blessed.box({
-	top: 'top',
-	left: 'left',
-	width: '100%',
-	height: '100%',
-	content: '',
-	tags: true,
-	border: {
-		type: 'line'
-	}
-});
-
-var headerText = "Pinging " + host;
-var header = blessed.text({
-	top: 'top',
-	left: 1,
-	width: headerText.length,
-	height: '1',
-	fg: 'white',
-	content: headerText,
-	tags: true
-});
-
-var date = blessed.text({
-	top: 'top',
-	right: 1,
-	width: 9,
-	height: '1',
-	align: 'right',
-	content: '',
-	tags: true
-});
-
-var lastTrace = blessed.text({
-	top: 3,
-	right: 1,
-	width: 'width',
-	height: '1',
-	align: 'right',
-	content: ''
-});
 
 
-var packetLoss = function() {
-	var loss = 0;
-	var lostPackets = 0;
-	values.forEach(function(value) {
-		if(value === 0) {
-			lostPackets++;
+/*var updateLastTrace = function() {
+ var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Values: " + values.length + " | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
+ lastTrace.setContent(lastTraceString);
+ lastTrace.width = lastTraceString.length;
+ screen.render();
+ };*/
+
+var boxMullerRandom = (function () {
+	var phase = 0;
+	var random = Math.random;
+	var x1, x2, w, z;
+
+	return function () {
+		if (!phase) {
+			do {
+				x1 = 2.0 * random() - 1.0;
+				x2 = 2.0 * random() - 1.0;
+				w = x1 * x1 + x2 * x2;
+			} while (w >= 1.0);
+
+			w = Math.sqrt((-2.0 * Math.log(w)) / w);
+			z = x1 * w;
+		} else {
+			z = x2 * w;
 		}
-	});
 
-	if(lostPackets > 0 && values.length > 0) {
-		loss = lostPackets/values.length;
+		phase ^= 1;
+
+		return z;
 	}
+}());
 
-	return Math.floor(loss * 100);
-}
-
-var averagePing = function() {
-	var sum = 0;
-	var count = 0;
-	var average = 0;
-	for(var val in values) {
-		if(val >= graph.width) {
-			break;
-		}
-		if(values[val] > 0 && !!values[val]) {
-			sum += values[val];
-			count++;
-		}
-	}
-
-	if(sum > 0 && count > 0) {
-		average = Math.floor(sum/count);
-	}
-
-	cachedAverage = average;
-
-	return average;
-};
+var getPing = function(address, cb) {
+	/*var lastValue = values[values.length - 1] || 0;
+	 var value = Math.abs(Math.floor(lastValue + (boxMullerRandom() * 10)));
+	 cb(null, value);*/
 
 
-var zeroPad = function(input) {
-	return ('0' + input).slice(-2);
-};
-
-var updateTime = function() {
-	var time = new Date();
-	date.setContent(zeroPad(time.getHours()) + ':' + zeroPad(time.getMinutes()) + ':' + zeroPad(time.getSeconds()) + ' ');
-	//screen.render();
-};
-
-
-var updateLastTrace = function() {
-	var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Values: " + values.length + " | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
-	lastTrace.setContent(lastTraceString);
-	lastTrace.width = lastTraceString.length;
-	screen.render();
-};
-
-
-var getPing = function(cb) {
 	session.pingHost(ip, function(err, target, sent, rcvd) {
 
 		var ms;
@@ -143,106 +94,262 @@ var getPing = function(cb) {
 		ms = rcvd - sent;
 		cb(null, ms);
 	});
+
 };
 
-var computeY = function(input) {
+var computeY = function(height, input) {
 	//var ceil =
 
-	var processedHighVal = highVal || 0;
-	if(input > (cachedAverage * 10) && cachedAverage > 0) {
-		processedHighVal = cachedAverage * 10;
+	if(!highVal) {
+		highVal = input;
 	}
+
+	var processedHighVal = highVal > maxYValue ? maxYValue : highVal;
+
 	var y  = height - Math.floor(((height + 1) / 100) * ((input / processedHighVal)*100)) + 1;
+	//console.log('y: %d', y, "height: %d", height, "input %d", input, "high val %d", processedHighVal);
 	return y;
 	//return height - Math.floor(((height + 1)/100)*input);
 };
 
 exports.computeY = computeY;
 
-var drawChart = function(cb) {
-	var width = (graph.width - 2) * 2;
-	height = (graph.height - 2) * 4;
-	var chart = new Canvas(width, height);
+var drawChart = function(chart, data, cb) {
 
-
-
-	//console.log("Chart dimensions", chart);
-	getPing(function(err, ms) {
-
-		if(err) {
-			console.error(err);
+	data.forEach(function(value, index) {
+		var x = index + (graphDimensions.width - data.length);
+		if(value > maxYValue) {
+			value = maxYValue;
 		}
 
-		// shift values out of the array once they are out of the
-		// scope of the graph to ensure performance
-		if(values.length >= width) {
-			values.shift();
+		var y = computeY(graphDimensions.height, value);
+
+		for(y; y < graphDimensions.height; y += 1) {
+			chart.set(x, y);
 		}
+	});
 
-		values.push(ms);
+	/*for(var pos = 0; pos < values.length; pos += 1) {
+	 var x = pos + (graphDimensions.width - values.length);
+	 var y = computeY(graphDimensions.height, values[pos]);
 
-		highVal = 0;
-		for(var pos in values) {
-			if(values[pos] > highVal) {
-				highVal = values[pos];
-			}
+	 for(y; y < graphDimensions.height; y += 1) {
+	 chart.set(x, y);
+	 }
+	 //console.log(x, y);
+
+	 //console.log("chart: ", chart);
+
+	 //process.exit(0);
+	 }*/
+
+	cb(null, chart.frame());
+
+};
+
+var init = function (cb) {
+
+
+	console.log('init');
+
+	screen = blessed.screen();
+
+	graph = blessed.box({
+		top: 'top',
+		left: 'left',
+		width: '100%',
+		height: '100%',
+		content: '',
+		tags: true,
+		border: {
+			type: 'line'
 		}
+	});
 
+	headerText = "Pinging " + host;
+	header = blessed.text({
+		top: 'top',
+		left: 1,
+		width: headerText.length,
+		height: '1',
+		fg: 'white',
+		content: headerText,
+		tags: true
+	});
 
-		for(var pos in values) {
+	date = blessed.text({
+		top: 'top',
+		right: 1,
+		width: 9,
+		height: '1',
+		align: 'right',
+		content: '',
+		tags: true
+	});
 
-
-			var x = parseInt(pos) + (width-values.length);
-
-			var y = computeY(values[pos]);
-
-			for(y; y<height;y++) {
-				chart.set(x, y);
-			}
-
-			//console.log("chart: ", chart);
-
-			//process.exit(0);
-			cb(null, chart.frame());
-		}
-
+	lastTrace = blessed.text({
+		top: 3,
+		right: 1,
+		width: 'width',
+		height: '1',
+		align: 'right',
+		content: ''
 	});
 
 
+	packetLoss = function () {
+		var loss = 0;
+		var lostPackets = 0;
+		values.forEach(function (value) {
+			if (value === 0) {
+				lostPackets += 1;
+			}
+		});
+
+		if (lostPackets > 0 && values.length > 0) {
+			loss = lostPackets / values.length;
+		}
+
+		return Math.floor(loss * 100);
+	};
+
+	averagePing = function () {
+		var sum = 0;
+		var count = 0;
+		var average = 0;
+		for (var pos = 0; pos < graphDimensions.width; pos += 1) {
+
+			if (values[pos] > 0 && !!values[pos]) {
+				sum += values[pos];
+				count++;
+			}
+		}
+
+		if (sum > 0 && count > 0) {
+			average = Math.floor(sum / count);
+		}
+
+		cachedAverage = average;
+
+		return average;
+	};
+
+
+	zeroPad = function (input) {
+		return ('0' + input).slice(-2);
+	};
+
+	updateTime = function () {
+		var time = new Date();
+		date.setContent(zeroPad(time.getHours()) + ':' + zeroPad(time.getMinutes()) + ':' + zeroPad(time.getSeconds()) + ' ');
+		//screen.render();
+	};
+
+
+	updateLastTrace = function () {
+		var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Values: " + values.length + " | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
+		lastTrace.setContent(lastTraceString);
+		lastTrace.width = lastTraceString.length;
+		screen.render();
+	};
+
+
+
+	screen.append(graph);
+	screen.append(header);
+	screen.append(lastTrace);
+
+	cb(null, {
+		screen: screen,
+		graph: graph
+	});
 };
 
 module.exports = function() {
-	dns.resolve4(host, function(err, addresses) {
+	var interval;
+
+	program
+		.version('0.0.1')
+		.option('-i, --interval <integer>')
+		.option('-h, --host <host>')
+		.option('-m, --max-y-value <integer>')
+		.parse(process.argv);
+
+	if(!program.host) {
+		console.log('set a host with `-h <hostname>`');
+		process.exit(0);
+	}
+
+	interval = program.interval || 1000;
+	host = program.host;
+	if(program.maxYValue) {
+		maxYValue = program.maxYValue;
+	}
+
+
+	dns.resolve4(program.host, function(err, addresses) {
 		if(err) {
-			console.log(err);
+			console.error(err);
+			process.exit(0);
 		}
+
 
 		ip = addresses[0];
 
-		updateTime();
 
-		screen.append(graph);
-		screen.append(header);
-		screen.append(date);
-		screen.append(lastTrace);
 
-		screen.render();
-		setInterval(function() {
-			//graph.setContent(drawChart());
-			updateTime();
-			drawChart(function(err, frame) {
-				//console.log(frame);
-				process.nextTick(function() {
-					graph.setContent(frame);
-					screen.render();
-				})
-			});
-			//screen.render();
-			updateLastTrace();
-		}, 1000);
+		// initialize the blessed items and the drawille chart
+		init(function(err, graphData) {
+
+			var chart;
+
+			graphDimensions.width = (graphData.graph.width - 2) * 2;
+			graphDimensions.height = (graphData.graph.height - 2) * 4;
+
+			graphData.screen.render();
+
+			chart = new Canvas(graphDimensions.width, graphDimensions.height);
+
+
+			setInterval(function() {
+				//graph.setContent(drawChart());
+				updateTime();
+
+				chart.clear();
+
+				getPing(ip, function(err, value) {
+					//console.log(value);
+					values.push(value);
+
+					if(values.length>(graphData.graph.width - 2) * 2) {
+						values.shift();
+					}
+
+					lastTrace.setContent(String(values[values.length - 1]));
+
+					// loop through values to find the max value
+					// used for auto-scaling the graph y axis
+					highVal = 0;
+					for(var v = 0; v < values.length; v++) {
+						if(values[v] > highVal) {
+							highVal = values[v];
+						}
+					}
+
+					process.nextTick(function() {
+						drawChart(chart, values, function(err, frame) {
+							graphData.graph.setContent(frame);
+							graphData.screen.render();
+							//console.log(addresses);
+						});
+
+
+						updateLastTrace();
+					});
+
+				});
+			}, interval);
+
+		});
 	});
 };
-
-
-
-
