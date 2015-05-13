@@ -125,6 +125,10 @@ var drawChart = function(chart, data, cb) {
 		var y = computeY(graphDimensions.height, value);
 
 		for(y; y < graphDimensions.height; y += 1) {
+			if(maxYValue && value >= maxYValue && y === 0) {
+				chart.set(x-1, y);
+				chart.set(x+1, y);
+			}
 			chart.set(x, y);
 		}
 	});
@@ -247,7 +251,13 @@ var init = function (cb) {
 
 
 	updateLastTrace = function () {
-		var lastTraceString = "Last trace: " + values[values.length - 1] + "ms | Values: " + values.length + " | Average: " + averagePing() + "ms | Highest Trace: " + highVal + "ms | Packet loss: " + packetLoss() + "%";
+		var lastTraceString =
+			"Last trace: " + values[values.length - 1] + "ms | " +
+			"Average: " + averagePing() + "ms | " +
+			"Highest Trace: " + highVal + "ms | " +
+			"Packet loss: " + packetLoss() + "%";
+
+
 		lastTrace.setContent(lastTraceString);
 		lastTrace.width = lastTraceString.length;
 		screen.render();
@@ -256,6 +266,7 @@ var init = function (cb) {
 
 
 	screen.append(graph);
+	screen.append(date);
 	screen.append(header);
 	screen.append(lastTrace);
 
