@@ -28,7 +28,7 @@ var updateLastTrace;
 var zeroPad;
 var updateTime;
 
-var maxYValue = 500;
+var maxYValue;
 
 var graphDimensions = {
 	width: 0,
@@ -106,7 +106,7 @@ var computeY = function(height, input) {
 
 	var processedHighVal = highVal > maxYValue ? maxYValue : highVal;
 
-	var y  = height - Math.floor(((height + 1) / 100) * ((input / processedHighVal)*100)) + 1;
+	var y  = height - Math.floor(((height + 1) / 100) * ((input / maxYValue)*100)) + 1;
 	//console.log('y: %d', y, "height: %d", height, "input %d", input, "high val %d", processedHighVal);
 	return y;
 	//return height - Math.floor(((height + 1)/100)*input);
@@ -151,12 +151,44 @@ var drawChart = function(chart, data, cb) {
 
 };
 
+var calcJitter = function() {
+
+	var sum;
+	var diffs;
+
+	if(values.length === 0) {
+		return 0;
+	}
+
+	diffs = values.map(function (value, index) {
+		if (index > 0) {
+			return Math.abs(values[index - 1] - value)
+		} else {
+			return 0;
+		}
+	});
+
+	sum = diffs.reduce(function (a, b) {
+		return a + b;
+	});
+
+	if(sum === 0) {
+		return 0;
+	}
+
+
+	return Math.round(sum / values.length);
+};
+
 var init = function (cb) {
 
 
 	console.log('init');
 
-	screen = blessed.screen();
+	screen = blessed.screen({
+		autoPadding: true,
+		smartCSR: true
+	});
 
 	graph = blessed.box({
 		top: 'top',
@@ -167,6 +199,12 @@ var init = function (cb) {
 		tags: true,
 		border: {
 			type: 'line'
+		},
+		style: {
+			fg: 'green',
+			border: {
+				fg: '#f0f0f0'
+			},
 		}
 	});
 
@@ -255,7 +293,9 @@ var init = function (cb) {
 			"Last trace: " + values[values.length - 1] + "ms | " +
 			"Average: " + averagePing() + "ms | " +
 			"Highest Trace: " + highVal + "ms | " +
-			"Packet loss: " + packetLoss() + "%";
+			"Jitter: " + calcJitter() + "% | " +
+			"Packet loss: " + packetLoss() + "% | " +
+			"Max Y: " + maxYValue + "ms";
 
 
 		lastTrace.setContent(lastTraceString);
@@ -291,11 +331,18 @@ module.exports = function() {
 		process.exit(0);
 	}
 
-	interval = program.interval || 1000;
-	host = program.host;
+
 	if(program.maxYValue) {
 		maxYValue = program.maxYValue;
 	}
+
+	if(program.interval && program.interval < 1000) {
+		console.log('Interval can not be less than 1000ms (1s)');
+		process.exit(0);
+	}
+
+	interval = program.interval || 1000;
+	host = program.host;
 
 
 	dns.resolve4(program.host, function(err, addresses) {
@@ -327,6 +374,10 @@ module.exports = function() {
 				updateTime();
 
 				chart.clear();
+
+				if(!program.maxYValue) {
+					maxYValue = cachedAverage * 5;
+				}
 
 				getPing(ip, function(err, value) {
 					//console.log(value);
