@@ -1,6 +1,6 @@
 {
   "name": "pingtop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "pings a url and graphs the result",
   "main": "index.js",
   "preferGlobal": true,
