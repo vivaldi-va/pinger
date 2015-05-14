@@ -293,7 +293,7 @@ var init = function (cb) {
 			"Last trace: " + values[values.length - 1] + "ms | " +
 			"Average: " + averagePing() + "ms | " +
 			"Highest Trace: " + highVal + "ms | " +
-			"Jitter: " + calcJitter() + "% | " +
+			"Jitter: " + Math.round((calcJitter() / cachedAverage) * 100) + "% | " +
 			"Packet loss: " + packetLoss() + "% | " +
 			"Max Y: " + maxYValue + "ms";
 
