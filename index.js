@@ -27,7 +27,9 @@ var averagePing;
 var updateLastTrace;
 var zeroPad;
 var updateTime;
-
+var graphData;
+var chart;
+var interval;
 var maxYValue;
 
 var graphDimensions = {
@@ -155,6 +157,7 @@ var calcJitter = function() {
 
 	var sum;
 	var diffs;
+	var i = 0;
 
 	if(values.length === 0) {
 		return 0;
@@ -169,6 +172,7 @@ var calcJitter = function() {
 	});
 
 	sum = diffs.reduce(function (a, b) {
+		i +=1;
 		return a + b;
 	});
 
@@ -176,8 +180,7 @@ var calcJitter = function() {
 		return 0;
 	}
 
-
-	return Math.round(sum / values.length);
+	return Math.round(sum / i);
 };
 
 var init = function (cb) {
@@ -204,7 +207,7 @@ var init = function (cb) {
 			fg: 'green',
 			border: {
 				fg: '#f0f0f0'
-			},
+			}
 		}
 	});
 
@@ -310,14 +313,66 @@ var init = function (cb) {
 	screen.append(header);
 	screen.append(lastTrace);
 
-	cb(null, {
+	graphData = {
 		screen: screen,
 		graph: graph
+	};
+
+	cb(null);
+};
+
+var run = function() {
+	var timeStart = new Date().getTime();
+	updateTime();
+
+	chart.clear();
+
+	if(!program.maxYValue) {
+		maxYValue = cachedAverage * 5;
+	}
+
+	getPing(ip, function(err, value) {
+		//console.log(value);
+		values.push(value);
+
+		if(values.length>(graphData.graph.width - 2) * 2) {
+			values.shift();
+		}
+
+		lastTrace.setContent(String(values[values.length - 1]));
+
+		// loop through values to find the max value
+		// used for auto-scaling the graph y axis
+		highVal = 0;
+		for(var v = 0; v < values.length; v++) {
+			if(values[v] > highVal) {
+				highVal = values[v];
+			}
+		}
+
+		drawChart(chart, values, function(err, frame) {
+			var timeEnd;
+
+			graphData.graph.setContent(frame);
+			graphData.screen.render();
+
+			timeEnd = new Date().getTime();
+
+			if(timeEnd - timeStart >= interval) {
+				run();
+			} else {
+				setTimeout(run, interval - (timeEnd - timeStart));
+			}
+
+		});
+
+
+		updateLastTrace();
+
 	});
 };
 
 module.exports = function() {
-	var interval;
 
 	program
 		.version('0.0.1')
@@ -345,6 +400,7 @@ module.exports = function() {
 	host = program.host;
 
 
+	// get the IP of the url so that we can ping it
 	dns.resolve4(program.host, function(err, addresses) {
 		if(err) {
 			console.error(err);
@@ -357,60 +413,23 @@ module.exports = function() {
 
 
 		// initialize the blessed items and the drawille chart
-		init(function(err, graphData) {
-
-			var chart;
+		init(function(err) {
+			var canvasHeight;
+			var canvasWidth;
 
 			graphDimensions.width = (graphData.graph.width - 2) * 2;
 			graphDimensions.height = (graphData.graph.height - 2) * 4;
 
 			graphData.screen.render();
 
-			chart = new Canvas(graphDimensions.width, graphDimensions.height);
+			canvasWidth = graphDimensions.width - (graphDimensions.width % 2);
+			canvasHeight = graphDimensions.height - (graphDimensions.height % 4);
+
+			chart = new Canvas(canvasWidth, canvasHeight);
 
 
-			setInterval(function() {
-				//graph.setContent(drawChart());
-				updateTime();
-
-				chart.clear();
-
-				if(!program.maxYValue) {
-					maxYValue = cachedAverage * 5;
-				}
-
-				getPing(ip, function(err, value) {
-					//console.log(value);
-					values.push(value);
-
-					if(values.length>(graphData.graph.width - 2) * 2) {
-						values.shift();
-					}
-
-					lastTrace.setContent(String(values[values.length - 1]));
-
-					// loop through values to find the max value
-					// used for auto-scaling the graph y axis
-					highVal = 0;
-					for(var v = 0; v < values.length; v++) {
-						if(values[v] > highVal) {
-							highVal = values[v];
-						}
-					}
-
-					process.nextTick(function() {
-						drawChart(chart, values, function(err, frame) {
-							graphData.graph.setContent(frame);
-							graphData.screen.render();
-							//console.log(addresses);
-						});
-
-
-						updateLastTrace();
-					});
-
-				});
-			}, interval);
+			//setInterval(run(graphData, chart), interval);
+			run();
 
 		});
 	});
